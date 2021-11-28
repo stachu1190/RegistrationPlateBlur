@@ -10,20 +10,38 @@ from skimage.color import rgb2hsv, hsv2rgb, rgb2gray
 from skimage.filters.edges import convolve
 from matplotlib import pylab as plt
 import cv2
+import imutils
 
 def load(foldername):
     input = []
     for filename in os.listdir(foldername):
         input.append(cv2.imread((os.path.join(foldername, filename))))
     return input
-
 def to_gray(list1 , list2):
 
     for item in list1:
         gray = cv2.cvtColor(item, cv2.COLOR_BGR2GRAY)  # convert to grey scale
-        gray = cv2.bilateralFilter(gray, 13, 15, 15)
-        edges = cv2.Canny(gray, 100,200)
-        list2.append(edges)
+        gray = cv2.Canny(gray, 150,200)
+        contours, trash = cv2.findContours(gray,cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key = cv2.contourArea, reverse = True)[:10]
+        screenCnt = None
+        for c in contours:
+            approx = cv2.approxPolyDP(c, 0.02 * cv2.arcLength(c,True), True)
+            print(approx)
+            if len(approx) == 4:
+                screenCnt = approx
+                print("--------------")
+                break
+        blurred = item.copy()
+        new_image = cv2.drawContours(item,[screenCnt],0,[255,0,0],-1)
+        blurred = cv2.blur(blurred, (50,50))
+        #mask = np.zeros(image.shape, dtype=np.uint8)
+        for i in range(len(new_image)):
+            for j in range(len(new_image[i])):
+                if(new_image[i][j][0] == 255):
+                    new_image[i][j] = blurred[i][j]
+        #list2.append(blurred)
+        list2.append(new_image)
 
 def main():
     cars = load("./images")
@@ -32,19 +50,15 @@ def main():
     for i in range(len(cars)):
         cars_image.append(cars[i])
     #print(cars_image[0])
-    to_gray(cars_image,gray_cars)
+    to_gray(cars_image,gray_cars)    
 
-    for car , car2 in zip(gray_cars, cars):
+    for car in gray_cars:
 
         imS = cv2.resize(car, (960, 540))
         cv2.imshow("output", imS)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-        imS = cv2.resize(car2, (960, 540))
-        cv2.imshow("output", imS)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
